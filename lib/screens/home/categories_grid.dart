@@ -119,6 +119,7 @@ class _CategoryCardState extends State<_CategoryCard>
               ),
               const SizedBox(height: 8),
               Text(
+                textAlign: TextAlign.center,
                 widget.category.name,
                 style: const TextStyle(
                   fontSize: 18,
