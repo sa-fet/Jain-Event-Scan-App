@@ -600,7 +600,7 @@ class _ReportScreenState extends State<ReportScreen> with SingleTickerProviderSt
     final jsonString = JsonEncoder.withIndent('  ').convert(jsonData);
     final bytes = Uint8List.fromList(jsonString.codeUnits);
     
-    await FilePicker.platform.saveFile(
+    await FilePicker.saveFile(
       dialogTitle: 'Export to JSON',
       fileName: "Event_Scan_Data-${DateTime.now()}.json",
       type: FileType.custom,
@@ -705,7 +705,7 @@ class _ReportScreenState extends State<ReportScreen> with SingleTickerProviderSt
 
     try {
       var fileName = "Event_Scan_Report-${DateTime.now()}.xlsx";
-      var outputPath = await FilePicker.platform.saveFile(
+      var outputPath = await FilePicker.saveFile(
         dialogTitle: 'Export to Excel',
         fileName: fileName,
         type: FileType.custom,

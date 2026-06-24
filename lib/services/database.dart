@@ -72,6 +72,7 @@ class Database {
   }
 
   static Future<Stream<QuerySnapshot>> getBarcodes({required String category, required bool isScanned, required int selectedDay}) async {
+    debugPrint('Fetching barcodes for category: $category, isScanned: $isScanned, selectedDay: $selectedDay');
     final collection = _getCurrentCollection();
     if (isScanned) {
       return _firestore
@@ -133,7 +134,7 @@ class Database {
   static Future<int> calculateMaxDay() async {
     // Fetch and calculate the maximum day from the data
     int maxDay = 1;
-    QuerySnapshot snapshot = await getUsers();
+    QuerySnapshot snapshot = await getAttendees();
     for (var doc in snapshot.docs) {
       var data = doc.data() as Map<String, dynamic>;
       var scanned = data['scanned'] as Map<String, dynamic>? ?? {};
@@ -183,6 +184,7 @@ class Database {
   }
 
   static Future<Stream<QuerySnapshot<Object?>>> getBarcodesStream() async {
+    debugPrint('Fetching barcodes stream');
     final collection = _getCurrentCollection();
     return _firestore
         .collection(collection)
@@ -227,7 +229,8 @@ class Database {
     }
   }
 
-  static Future<QuerySnapshot> getUsers() async {
+  static Future<QuerySnapshot> getAttendees() async {
+    debugPrint('Fetching attendees');
     final collection = _getCurrentCollection();
     return _firestore.collection(collection).where(FieldPath.documentId, isNotEqualTo: '.config').get();
   }

@@ -15,7 +15,7 @@ class CategoryModel {
   factory CategoryModel.fromMap(Map<String, dynamic> data) {
     return CategoryModel(
       name: data['name'],
-      icon: deserializeIcon(data['data'])??const IconPickerIcon(name: "Category", data: Icons.category, pack: IconPack.material),
+      icon: deserializeIcon(data['data'])??const IconPickerIcon(name: "Category", data: Icons.category, pack: 'material'),
       colorValue: data['colorValue'],
     );
   }

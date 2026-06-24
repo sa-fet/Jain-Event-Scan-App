@@ -31,6 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   @override
   void initState() {
+    debugPrint('Initializing DashboardScreen');
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _initialAnimationController = AnimationController(
@@ -73,12 +74,13 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   Future<void> _loadUsers() async {
     // Load users from Firebase once
-    QuerySnapshot snapshot = await Database.getUsers();
+    QuerySnapshot snapshot = await Database.getAttendees();
     setState(() {
       _users = snapshot.docs
           .map((doc) => BarcodeModel.fromDocument(doc))
           .toList();
     });
+    debugPrint('Loaded ${_users.length} attendees');
   }
 
   void _updateCategoryCounts() {

@@ -33,6 +33,9 @@ migrate_working_dir/
 .pub/
 /build/
 
+/android/.kotlin
+/android/build
+
 # Symbolication related
 app.*.symbols
 
