@@ -1,27 +1,28 @@
 name: event_scan
 description: "An app designed to streamline barcode scanning at events like freshers' parties or Multi Day Programs. Ensures smooth and efficient entry management using Firestore database by checking whether tickets have been scanned before with real-time sync between devices."
 publish_to: 'none'
-version: 4.1.0+21
+version: 4.1.1+22
 
 environment:
   sdk: ^3.8.1
+  flutter: 3.44.3
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  firebase_core: ^4.0.0
-  cloud_firestore: ^6.0.0
-  audioplayers: ^6.0.0
-  mobile_scanner: ^7.0.1
+  cupertino_icons: ^1.0.9
+  firebase_core: ^4.11.0
+  cloud_firestore: ^6.6.0
+  audioplayers: ^6.8.0
+  mobile_scanner: ^7.2.0
   flutter_launcher_icons: ^0.14.4
-  flutter_iconpicker: ^4.0.1
+  flutter_iconpicker: ^4.0.3
   flutter_colorpicker: ^1.1.0
   flutter_staggered_animations: ^1.1.1
-  flutter_slidable: ^4.0.0
+  flutter_slidable: ^4.0.3
   file_picker: ^11.0.2
   excel: ^4.0.6
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
   package_info_plus: ^9.0.1
 

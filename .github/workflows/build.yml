@@ -56,7 +56,8 @@ jobs:
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.32.6'
+        channel: stable
+        flutter-version-file: pubspec.yaml
 
     - name: Write key.properties
       run: echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
@@ -129,7 +130,7 @@ jobs:
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.32.6'
+        flutter-version-file: pubspec.yaml
 
     - name: Setup iOS build environment
       run: |
