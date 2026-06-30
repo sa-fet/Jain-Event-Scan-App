@@ -14,7 +14,7 @@ class ExtraField {
       return ExtraField(
         key: key,
         value: data['value']?.toString() ?? '',
-        icon: iconCode != null ? IconData(iconCode, fontFamily: 'MaterialIcons') : null,
+        icon: iconCode != null ? _iconFromCodePoint(iconCode as int) : null,
       );
     }
     return ExtraField(key: key, value: data?.toString() ?? '');
@@ -44,13 +44,22 @@ class ExtraField {
   }
 }
 
+IconData _iconFromCodePoint(int codePoint) {
+  // ignore: non_const_argument_for_const_parameter
+  return IconData(codePoint, fontFamily: 'MaterialIcons');
+}
+
 class BarcodeModel {
   final String code;
-  final String title; // formerly 'name'
-  final String subtitle; // formerly 'designation'
-  final List<ExtraField> extras; // new list to store any other user fields
+  final String title;
+  final String subtitle;
+  final List<ExtraField> extras;
   final Map<String, List<int>> scanned;
   final Timestamp timestamp;
+  final Map<String, String> lastActionByCategory;
+  final Timestamp? lastScanAt;
+  final String? lastScanCategory;
+  final String? lastScanAction;
   late bool? isScanned;
 
   BarcodeModel({
@@ -60,6 +69,10 @@ class BarcodeModel {
     required this.extras,
     required this.scanned,
     required this.timestamp,
+    this.lastActionByCategory = const {},
+    this.lastScanAt,
+    this.lastScanCategory,
+    this.lastScanAction,
     this.isScanned,
   });
 
@@ -75,6 +88,11 @@ class BarcodeModel {
         (key, value) => MapEntry(key, (value as List).map((e) => e as int).toList()),
       ),
       timestamp: data?['timestamp'] ?? Timestamp.now(),
+      lastActionByCategory: (data?['lastActionByCategory'] as Map<String, dynamic>? ?? {})
+          .map((key, value) => MapEntry(key, value.toString())),
+      lastScanAt: data?['lastScanAt'] as Timestamp?,
+      lastScanCategory: data?['lastScanCategory']?.toString(),
+      lastScanAction: data?['lastScanAction']?.toString(),
     );
   }
 
@@ -98,12 +116,29 @@ class BarcodeModel {
         timestamp: data['timestamp'] is int
           ? Timestamp.fromMillisecondsSinceEpoch(data['timestamp'])
           : data['timestamp'] ?? Timestamp.now(),
+        lastActionByCategory: (data['lastActionByCategory'] as Map<String, dynamic>? ?? {})
+            .map((key, value) => MapEntry(key, value.toString())),
+        lastScanAt: data['lastScanAt'] as Timestamp?,
+        lastScanCategory: data['lastScanCategory']?.toString(),
+        lastScanAction: data['lastScanAction']?.toString(),
       );
     }
     return BarcodeModel.empty();
   }
 
-  factory BarcodeModel.empty() => BarcodeModel(code: '', title: '', subtitle: '', extras: [], scanned: {}, timestamp: Timestamp.now(), isScanned: null);
+  factory BarcodeModel.empty() => BarcodeModel(
+        code: '',
+        title: '',
+        subtitle: '',
+        extras: [],
+        scanned: {},
+        timestamp: Timestamp.now(),
+        lastActionByCategory: const {},
+        lastScanAt: null,
+        lastScanCategory: null,
+        lastScanAction: null,
+        isScanned: null,
+      );
 
   BarcodeModel copyWith(Map<String, dynamic> data) {
     return BarcodeModel.from({...toMap(), ...data});
@@ -117,6 +152,10 @@ class BarcodeModel {
       'extras': extras.map((field) => field.toMap()).toList(),
       'scanned': scanned,
       'timestamp': timestamp,
+      'lastActionByCategory': lastActionByCategory,
+      'lastScanAt': lastScanAt,
+      'lastScanCategory': lastScanCategory,
+      'lastScanAction': lastScanAction,
     };
   }
 

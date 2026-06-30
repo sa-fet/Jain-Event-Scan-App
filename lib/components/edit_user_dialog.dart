@@ -487,7 +487,7 @@ class _EditUserDialogState extends State<EditUserDialog> with TickerProviderStat
         
         if (fieldIndex < extras.length) {
           final field = extras[fieldIndex];
-          extras[fieldIndex] = field.copyWith(icon: IconData(icon.data.codePoint, fontFamily: 'MaterialIcons'));
+          extras[fieldIndex] = field.copyWith(icon: icon.data);
           _updateBarcodeData(userIndex, {'extras': extras});
         }
       });

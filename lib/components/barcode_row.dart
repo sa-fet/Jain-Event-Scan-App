@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../constants/day_colors.dart';
 import '../models/barcode_model.dart';
 import '../models/category_model.dart';
+import '../services/database.dart';
 
 class BarcodeRow extends StatelessWidget {
   final BarcodeModel barcode;
@@ -58,6 +59,14 @@ class BarcodeRow extends StatelessWidget {
                               fontSize: 14,
                             ),
                           ),
+                          if (barcode.lastScanAt != null)
+                            Text(
+                              'Last ${barcode.lastScanAction ?? 'scan'}: ${Database.formatDateTime(barcode.lastScanAt!.toDate())}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -179,6 +188,17 @@ class BarcodeRow extends StatelessWidget {
             color: Colors.grey,
           ),
         ),
+        if (barcode.lastScanAt != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Last ${barcode.lastScanAction ?? 'scan'} in ${barcode.lastScanCategory ?? 'N/A'}',
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+          Text(
+            Database.formatDateTime(barcode.lastScanAt!.toDate()),
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+        ],
       ],
     );
   }

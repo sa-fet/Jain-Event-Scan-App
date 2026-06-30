@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import '../../models/category_model.dart';
-import '../../models/barcode_model.dart';
 
 import '../../components/edit_user_dialog.dart';
-import '../../constants/day_colors.dart';
+import '../../models/barcode_model.dart';
+import '../../models/category_model.dart';
 import '../../services/database.dart';
 
 class ResultDialog extends StatefulWidget {
@@ -34,14 +33,11 @@ class _ResultDialogState extends State<ResultDialog> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    final success = widget.result != null && widget.result!.code.isNotEmpty;
     _colorAnimation = ColorTween(
       begin: Colors.transparent,
-      end: widget.result?.isScanned == null
-          ? Colors.amber[800]
-          : widget.result?.isScanned == true
-              ? Colors.red
-              : Colors.green,
+      end: success ? Colors.green[700] : Colors.red[700],
     ).animate(_controller);
     _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
     _controller.forward();
@@ -54,7 +50,9 @@ class _ResultDialogState extends State<ResultDialog> with SingleTickerProviderSt
     } else {
       _categories = await Database.getCategories();
     }
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -65,13 +63,16 @@ class _ResultDialogState extends State<ResultDialog> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.result?.title ?? 'Unknown';
-    final subtitle = widget.result?.subtitle ?? 'Unknown';
-    final extras = widget.result?.extras ?? <ExtraField>[];
-    final scanned = widget.result?.scanned ?? {};
-    final isScanned = widget.result?.isScanned;
+    final result = widget.result;
+    final title = result?.title ?? 'Unknown';
+    final subtitle = result?.subtitle ?? 'Unknown';
+    final extras = result?.extras ?? <ExtraField>[];
+    final scanned = result?.scanned ?? const <String, List<int>>{};
+    final isKnown = result != null && result.code.isNotEmpty;
+    final action = result?.lastScanAction ?? '';
+    final category = result?.lastScanCategory ?? '';
+    final scanAt = result?.lastScanAt?.toDate();
 
-    // Show edit dialog if title is empty
     if (widget.result?.title.isEmpty == true) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         showDialog(
@@ -80,17 +81,6 @@ class _ResultDialogState extends State<ResultDialog> with SingleTickerProviderSt
         );
       });
     }
-
-    final alertIcon = isScanned == null
-        ? Icons.warning_amber
-        : isScanned
-            ? Icons.close
-            : Icons.check;
-    final alertTitle = isScanned == null
-        ? "Unknown Barcode"
-        : isScanned
-            ? "Already Scanned!"
-            : "Scan Successful!";
 
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
@@ -106,21 +96,32 @@ class _ResultDialogState extends State<ResultDialog> with SingleTickerProviderSt
               backgroundColor: _colorAnimation.value,
               content: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(alertIcon, color: Colors.white, size: 40),
+                      Icon(
+                        isKnown ? (action == 'entry' ? Icons.login : Icons.logout) : Icons.warning_amber,
+                        color: Colors.white,
+                        size: 36,
+                      ),
                       const SizedBox(width: 10),
-                      Text(alertTitle, style: const TextStyle(color: Colors.white, fontSize: 26)),
+                      Text(
+                        isKnown ? 'Marked ${action.toUpperCase()}' : 'Unknown Barcode',
+                        style: const TextStyle(color: Colors.white, fontSize: 24),
+                      ),
                     ],
                   ),
-                  Text("Code: ${widget.barcode}"),
-                  Text("Title: $title"),
-                  Text("Subtitle: $subtitle"),
-                  ...extras.map((field) => Text('${field.key}: ${field.value}')),
-                  const SizedBox(height: 8),
-                  _buildScannedDays(scanned),
+                  const SizedBox(height: 12),
+                  Text('Code: ${widget.barcode}'),
+                  Text('Title: $title'),
+                  Text('Subtitle: $subtitle'),
+                  if (category.isNotEmpty) Text('Category: $category'),
+                  if (scanAt != null) Text('Scanned At: ${Database.formatDateTime(scanAt)}'),
+                  ...extras.where((field) => field.value.isNotEmpty).map((field) => Text('${field.key}: ${field.value}')),
+                  const SizedBox(height: 12),
+                  _buildScannedSummary(scanned),
                 ],
               ),
             );
@@ -130,39 +131,41 @@ class _ResultDialogState extends State<ResultDialog> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildScannedDays(Map<String, dynamic> scanned) {
-    if (_categories == null) return const CircularProgressIndicator();
+  Widget _buildScannedSummary(Map<String, List<int>> scanned) {
+    if (_categories == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (scanned.isEmpty) {
+      return const Text('No attendance history yet.', style: TextStyle(color: Colors.white));
+    }
 
     return Container(
-      margin: const EdgeInsets.only(top: 16),
+      margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Scanned Days:',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...scanned.entries.indexed.map((entry) {
-            CategoryModel category;
-            try { category = _categories!.firstWhere((cat) => cat.name == entry.$2.key); } catch (e) { return Container(); }
-            final dayColor = dayColors[entry.$1];
-            return Chip(
-              avatar: Icon(category.icon.data, color: dayColor),
-              label: Text('${entry.$2.key} - Day ${entry.$2.value}'),
-              backgroundColor: dayColor.withValues(alpha: 0.1),
-            );
-          }),
-        ],
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: scanned.entries.map((entry) {
+          CategoryModel? category;
+          for (final item in _categories!) {
+            if (item.name == entry.key) {
+              category = item;
+              break;
+            }
+          }
+          if (category == null) {
+            return const SizedBox.shrink();
+          }
+          return Chip(
+            avatar: Icon(category.icon.data),
+            label: Text('${entry.key} • Days ${entry.value.join(', ')}'),
+          );
+        }).toList(),
       ),
     );
   }

@@ -43,6 +43,7 @@ class _DraggableSheetState extends State<DraggableSheet> {
             scrollController: ScrollController(),
             category: widget.category.name,
             isScanned: isScanned,
+            selectedDay: widget.selectedDay,
             categories: widget.categories,
           );
         }

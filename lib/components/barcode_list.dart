@@ -10,6 +10,7 @@ class BarcodeList extends StatefulWidget {
   final ScrollController scrollController;
   final String category;
   final bool isScanned;
+  final int selectedDay;
   final List<CategoryModel> categories;
 
   const BarcodeList({
@@ -18,6 +19,7 @@ class BarcodeList extends StatefulWidget {
     required this.scrollController,
     required this.category,
     required this.isScanned,
+    required this.selectedDay,
     required this.categories,
   });
 
@@ -62,11 +64,12 @@ class BarcodeListState extends State<BarcodeList> {
               final docs = snapshot.data!.docs;
               final filteredDocs = docs.where((doc) {
                 var barcode = BarcodeModel.fromDocument(doc);
+                final scannedDays = barcode.scanned[widget.category] ?? const <int>[];
                 final matchesCategory = widget.category == 'all' || widget.category.isEmpty
                     ? true
                     : widget.isScanned
-                        ? barcode.scanned[widget.category]?.isNotEmpty ?? false
-                        : !(barcode.scanned[widget.category]?.isNotEmpty ?? false);
+                        ? scannedDays.contains(widget.selectedDay)
+                        : !scannedDays.contains(widget.selectedDay);
 
                 return matchesCategory && barcode.code.isNotEmpty && _matchesSearch(barcode);
               }).toList();

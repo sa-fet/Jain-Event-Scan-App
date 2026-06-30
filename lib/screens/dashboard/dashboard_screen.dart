@@ -1,16 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:event_scan/models/barcode_model.dart';
+import 'package:event_scan/models/scan_event_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
-import '../../components/custom_step_slider.dart';
-import '../../models/category_model.dart';
 import '../../services/database.dart';
+import '../../models/category_model.dart';
 import 'manage_users_screen.dart';
 import 'report_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final List<CategoryModel> categories;
+
   const DashboardScreen({super.key, required this.categories});
 
   @override
@@ -20,18 +21,18 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   List<BarcodeModel> _users = [];
-  // ignore: unused_field
+  List<ScanEventModel> _events = [];
   bool _isLoading = true;
-  int _selectedDay = 0; // 0 represents 'All' days
-  List<String> _dayOptions = [];
-  final Map<String, int> _categoryCounts = {};
+  bool _showAllDates = false;
+  late DateTime _selectedDate;
+  DateTime? _minDate;
+  DateTime? _maxDate;
   late AnimationController _initialAnimationController;
   late Animation<double> _initialAnimation;
   bool _hasAnimated = false;
 
   @override
   void initState() {
-    debugPrint('Initializing DashboardScreen');
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _initialAnimationController = AnimationController(
@@ -42,69 +43,95 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       parent: _initialAnimationController,
       curve: Curves.easeOut,
     );
-    _initializeDayOptions();
+    _selectedDate = Database.startOfDay(DateTime.now());
     _loadData();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _initialAnimationController.dispose();
     super.dispose();
   }
 
-  void _initializeDayOptions() async {
-    var settings = await Database.getSettings();
-    DateTime startDate = (settings['startDate'] as Timestamp?)?.toDate() ?? DateTime.now();
-    DateTime endDate = (settings['endDate'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(days: 7));
-    int totalDays = endDate.difference(startDate).inDays + 1;
-    setState(() {
-      _dayOptions = ['All', for (int i = 1; i <= totalDays; i++) i.toString()];
-    });
-  }
-
   Future<void> _loadData() async {
-    await _loadUsers();
-    _updateCategoryCounts();
+    setState(() => _isLoading = true);
+
+    final settings = await Database.getSettings();
+    final startDate = (settings['startDate'] as Timestamp?)?.toDate();
+    final endDate = (settings['endDate'] as Timestamp?)?.toDate();
+    final normalizedNow = Database.startOfDay(DateTime.now());
+
+    _minDate = startDate != null ? Database.startOfDay(startDate) : null;
+    _maxDate = endDate != null ? Database.startOfDay(endDate) : null;
+
+    if (_minDate != null && _selectedDate.isBefore(_minDate!)) {
+      _selectedDate = _minDate!;
+    } else if (_maxDate != null && _selectedDate.isAfter(_maxDate!)) {
+      _selectedDate = _maxDate!;
+    } else if (_selectedDate.isAfter(normalizedNow)) {
+      _selectedDate = normalizedNow;
+    }
+
+    final users = await Database.getUsers();
+    final events = _showAllDates
+        ? await Database.getScanEvents(
+            startDate: _minDate ?? _selectedDate,
+            endDate: _maxDate ?? _selectedDate,
+          )
+        : await Database.getScanEvents(selectedDate: _selectedDate);
+
+    if (!mounted) return;
+    setState(() {
+      _users = users;
+      _events = events;
+      _isLoading = false;
+    });
+
     if (!_hasAnimated) {
       _initialAnimationController.forward();
       _hasAnimated = true;
     }
-    setState(() => _isLoading = false);
   }
 
-  Future<void> _loadUsers() async {
-    // Load users from Firebase once
-    QuerySnapshot snapshot = await Database.getAttendees();
+  Future<void> _pickDate() async {
+    final initialDate = _selectedDate;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: _minDate ?? DateTime(2020),
+      lastDate: _maxDate ?? DateTime(2100),
+    );
+
+    if (pickedDate == null) return;
     setState(() {
-      _users = snapshot.docs
-          .map((doc) => BarcodeModel.fromDocument(doc))
-          .toList();
+      _selectedDate = Database.startOfDay(pickedDate);
+      _showAllDates = false;
     });
-    debugPrint('Loaded ${_users.length} attendees');
+    await _loadData();
   }
 
-  void _updateCategoryCounts() {
-    _categoryCounts.clear();
-    // Initialize all category counts to zero
-    for (var category in widget.categories) {
-      _categoryCounts[category.name] = 0;
-    }
-    for (var user in _users) {
-      for (var entry in user.scanned.entries) {
-        var category = entry.key;
-        var days = List<int>.from(entry.value);
-        if (_selectedDay == 0 || days.contains(_selectedDay)) {
-          _categoryCounts[category] = (_categoryCounts[category] ?? 0) + 1;
-        }
-      }
-    }
+  List<ScanEventModel> get _filteredEvents => _events;
+
+  int _registeredUsersCount() => _users.length;
+
+  int _activeUsersCount() => _filteredEvents.map((event) => event.barcode).toSet().length;
+
+  int _entriesCount() => _filteredEvents.where((event) => event.action == 'entry').length;
+
+  int _exitsCount() => _filteredEvents.where((event) => event.action == 'exit').length;
+
+  int _categoryCount(String categoryName) {
+    return _filteredEvents
+        .where((event) => event.category == categoryName)
+        .map((event) => event.barcode)
+        .toSet()
+        .length;
   }
 
-  void _onDaySelected(int index) {
-    setState(() {
-      _selectedDay = index;
-      _updateCategoryCounts();
-    });
+  String get _dateLabel {
+    if (_showAllDates) return 'All dates';
+    return Database.formatDateTime(_selectedDate).split(' ').take(3).join(' ');
   }
 
   @override
@@ -118,10 +145,10 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           ),
         ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(150.0),
+          preferredSize: const Size.fromHeight(118),
           child: Column(
             children: [
-              _buildDaySlider(),
+              _buildFilters(),
               TabBar(
                 controller: _tabController,
                 tabs: const [
@@ -133,42 +160,51 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildDashboardTab(),
-          ReportScreen(users: _users, selectedDay: _selectedDay, categories: widget.categories),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildDashboardTab(),
+                ReportScreen(
+                  users: _users,
+                  events: _events,
+                  selectedDate: _showAllDates ? null : _selectedDate,
+                  categories: widget.categories,
+                ),
+              ],
+            ),
     );
   }
 
-  Widget _buildDaySlider() {
+  Widget _buildFilters() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: SizedBox(
-        height: 80.0,
-        child: Center(
-          child: _dayOptions.isEmpty
-            ? const CircularProgressIndicator()
-            : CustomStepSlider(
-                values: _dayOptions,
-                selectedValue: _dayOptions[_selectedDay],
-                onValueSelected: (value) => _onDaySelected(_dayOptions.indexOf(value)),
-                thumbColor: Colors.white.withValues(alpha: 0.2),
-                activeTextColor: Colors.white,
-                inactiveTextColor: Colors.white70,
-                containerHeight: 80.0,
-                thumbSize: 55.0,
-                activeFontSize: 24.0,
-                inactiveFontSize: 16.0,
-                sliderDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-        ),
-      )
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          ActionChip(
+            avatar: const Icon(Icons.calendar_month, size: 18),
+            label: Text(_dateLabel),
+            onPressed: _pickDate,
+          ),
+          FilterChip(
+            selected: _showAllDates,
+            label: const Text('All dates'),
+            onSelected: (selected) async {
+              setState(() => _showAllDates = selected);
+              await _loadData();
+            },
+          ),
+          TextButton.icon(
+            onPressed: _loadData,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -177,7 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       children: [
         SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: _buildStatsCards(),
           ),
         ),
@@ -191,7 +227,9 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       bottom: 16,
       right: 16,
       child: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => ManageUsersScreen(users: _users))).then((_) => setState(() {})),
+        onPressed: () => Navigator.of(context)
+            .push(MaterialPageRoute(builder: (context) => ManageUsersScreen(users: _users)))
+            .then((_) => _loadData()),
         icon: const Icon(Icons.manage_accounts),
         label: const Text('Manage'),
       ),
@@ -204,42 +242,31 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 2,
-        padding: const EdgeInsets.all(16.0),
-        childAspectRatio: 1.3,
-        mainAxisSpacing: 16.0,
-        crossAxisSpacing: 16.0,
+        padding: const EdgeInsets.all(16),
+        childAspectRatio: 1.15,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
         children: AnimationConfiguration.toStaggeredList(
           duration: const Duration(milliseconds: 375),
           childAnimationBuilder: (widget) => SlideAnimation(
-            verticalOffset: 50.0,
-            child: FadeInAnimation(
-              child: widget,
-            ),
+            verticalOffset: 50,
+            child: FadeInAnimation(child: widget),
           ),
           children: [
-            _buildAnimatedStatCard(
-                'Total Attendees',
-                _selectedDay == 0
-                    ? _calculateTotalUsers()
-                    : _calculateActiveUsers(),
-                Icons.people, Colors.green),
-            ..._buildCategoryStats(),
+            _buildAnimatedStatCard('Registered', _registeredUsersCount(), Icons.people, Colors.green),
+            _buildAnimatedStatCard('Active', _activeUsersCount(), Icons.badge, Colors.orange),
+            _buildAnimatedStatCard('Entries', _entriesCount(), Icons.login, Colors.cyan),
+            _buildAnimatedStatCard('Exits', _exitsCount(), Icons.logout, Colors.pink),
+            ...widget.categories.map((category) => _buildAnimatedStatCard(
+                  category.name,
+                  _categoryCount(category.name),
+                  category.icon.data,
+                  Color(category.colorValue),
+                )),
           ],
         ),
       ),
     );
-  }
-
-  List<Widget> _buildCategoryStats() {
-    return widget.categories.map((category) {
-      int count = _categoryCounts[category.name] ?? 0;
-      return _buildAnimatedStatCard(
-        category.name,
-        count,
-        category.icon.data,
-        Color(category.colorValue),
-      );
-    }).toList();
   }
 
   Widget _buildAnimatedStatCard(String title, int value, IconData icon, Color color) {
@@ -268,7 +295,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Card(
         elevation: 6,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -290,20 +317,13 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                 Icon(icon, size: 40, color: Colors.white),
                 const SizedBox(height: 10),
                 Text(
-                  value, 
-                  style: const TextStyle(
-                    fontSize: 24, 
-                    color: Colors.white, 
-                    fontWeight: FontWeight.bold
-                  )
+                  value,
+                  style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  title, 
+                  title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  )
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -312,27 +332,4 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       ),
     );
   }
-
-  int _calculateTotalUsers() {
-    if (_selectedDay == 0) {
-      return _users.length;
-    } else {
-      return _users.where((user) {
-        return user.scanned.values.any((days) => (days as List).contains(_selectedDay));
-      }).length;
-    }
-  }
-
-  int _calculateActiveUsers() {
-    if (_selectedDay == 0) {
-      return _users.where((user) {
-        return user.scanned.isNotEmpty;
-      }).length;
-    } else {
-      return _users.where((user) {
-        return user.scanned.values.any((days) => (days as List).contains(_selectedDay));
-      }).length;
-    }
-  }
-
 }
