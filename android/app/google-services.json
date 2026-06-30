@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "1012516305334",
-    "project_id": "partyscan-c9c01",
-    "storage_bucket": "partyscan-c9c01.firebasestorage.app"
+    "project_number": "1047544070350",
+    "project_id": "jain-events-portal-20705",
+    "storage_bucket": "jain-events-portal-20705.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1012516305334:android:75027e473812cdb1e8a917",
+        "mobilesdk_app_id": "1:1047544070350:android:325942a92012f3f07bd09f",
         "android_client_info": {
           "package_name": "com.jery.event_scan"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAT_HYIUd_Bgfg4uot94hyOw7-6tZZJdVA"
+          "current_key": "AIzaSyBYF0XVgjn8CiV5P--MX9iuUwNzNSu1MmU"
         }
       ],
       "services": {
